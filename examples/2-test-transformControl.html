@@ -197,6 +197,7 @@
 
         //must use deepCopy
         var ge = mesh.geometry.clone();
+        //Bakes matrix transform directly into vertex coordinates.
         ge.applyMatrix( matrixWorld );
         ge.computeBoundingBox();
 
