@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>2-test-transformControl</title>
+</head>
+<body>
+
+<br/>
+<br/>
+<div>
+    <label id="cur_mode">translate</label>
+    <br/>
+    <button onclick="setTransformControlMode_translate()">move</button>
+    <button onclick="setTransformControlMode_scale()">scale</button>
+    <button onclick="setTransformControlMode_rotate()">rotate</button>
+    <button onclick="test()">test</button>
+
+    <br/>
+    <label id="size"></label>
+    <br/>
+    <label id="position"></label>
+    <br/>
+    <label id="scale"></label>
+</div>
+
+<div id="Stats-output"> </div>
+<div id="WebGL-output"> </div>
+
+<script src="../build/three.js"></script>
+<script src="js/controls/OrbitControls.js"></script>
+<script src="js/libs/stats.min.js"></script>
+<script src="js/libs/dat.gui.min.js"></script>
+<script src="js/controls/TransformControls.js"></script>
+<script src="js/controls/DragControls.js"></script>
+
+<script>
+
+    var scene, camera, renderer, group, stats;
+
+    //about 'TransformControls & DragControls' : http://www.yanhuangxueyuan.com/Three.js_course/drag.html
+    var transformControl;
+
+    init();
+
+    addAxisToScene();
+
+    addMeshsToGroup();
+
+    addOrbitControlsToRenderDom();
+
+    addTransformControlsToRenderDom();
+
+    addDragcontrolsToGroup();
+
+    animate();
+
+    function init() {
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 2000 );
+        camera.position.set( 0, 0, 450 );
+        camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setClearColor( new THREE.Color(0xE8E8E8), 1.0 );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.shadowMapEnabled = true;
+
+        scene.add( camera );
+
+        document.getElementById( "WebGL-output" ).appendChild( renderer.domElement );
+
+        stats = new Stats();
+        document.getElementById( "Stats-output" ).appendChild( stats.dom );
+
+        group = new THREE.Group();
+        scene.add( group );
+
+    }
+
+    function addAxisToScene() {
+
+        var axis = new THREE.AxesHelper( 450 );
+        scene.add( axis );
+
+    }
+
+    function addMeshsToGroup() {
+
+        var boxGeometry = new THREE.BoxGeometry( 15, 15, 15 );
+
+        for ( var i = 0; i < boxGeometry.faces.length; i += 2 ) {
+            var hex = Math.random() * 0xffffff;
+            boxGeometry.faces[ i ].color.setHex( hex );
+            boxGeometry.faces[ i + 1 ].color.setHex( hex );
+        }
+
+        var material = new THREE.MeshBasicMaterial( { vertexColors: THREE.FaceColors, overdraw: 0.5 } );
+        var cube1 = new THREE.Mesh( boxGeometry, material );
+        var cube2 = new THREE.Mesh( boxGeometry, material );
+        cube1.position.set( 60, 0, 0 );
+        cube2.position.set( -60, 0, 0 );
+        group.add( cube1 );
+        group.add( cube2 );
+
+    }
+
+    function addOrbitControlsToRenderDom() {
+
+        var controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+        //tip : must call 'render()' rather than 'animate()', or UI lags
+        controls.addEventListener('change', render);
+
+        controls.addEventListener('start', function () {
+
+        });
+
+        controls.addEventListener('end', function () {
+
+        });
+
+    }
+
+    function addTransformControlsToRenderDom() {
+
+        transformControl = new THREE.TransformControls( camera, renderer.domElement );
+        transformControl.addEventListener( 'change', render );
+        transformControl.addEventListener('mouseUp', updateModelInfo_Size );
+        
+        scene.add( transformControl );
+        setTransformControlMode_scale();
+
+    }
+
+    function addDragcontrolsToGroup() {
+
+        //only drag 'group.children'
+        var dragcontrols = new THREE.DragControls( group.children, camera,renderer.domElement );
+
+        dragcontrols.addEventListener( 'hoveron', function ( event ) {
+            transformControl.attach( event.object );
+        } );
+
+        dragcontrols.addEventListener( 'hoveroff', function ( event ) {
+
+        } );
+
+    }
+
+    function animate() {
+
+        requestAnimationFrame( animate );
+        render();
+        stats.update();
+        transformControl.update();
+        updateModelInfo_PositionAndScale();
+
+    }
+
+    function render() {
+
+        renderer.render( scene, camera );
+
+    }
+
+    function setTransformControlMode_translate() {
+
+        transformControl.setMode( 'translate' );
+        document.getElementById( 'cur_mode' ).innerHTML = 'translate';
+
+    }
+
+    function setTransformControlMode_scale() {
+
+        transformControl.setMode( 'scale' );
+        document.getElementById( 'cur_mode' ).innerHTML = 'scale';
+
+    }
+
+    function setTransformControlMode_rotate() {
+
+        transformControl.setMode( 'rotate' );
+        document.getElementById( 'cur_mode' ).innerHTML = 'rotate';
+
+    }
+
+    function updateModelInfo_Size(){
+
+        if ( !transformControl.object ){
+            return;
+        }
+
+        var mesh = transformControl.object;
+        var matrixWorld = mesh.matrixWorld;
+
+        //must use deepCopy
+        var ge = mesh.geometry.clone();
+        ge.applyMatrix( matrixWorld );
+        ge.computeBoundingBox();
+
+        var x = ( ge.boundingBox.max.x - ge.boundingBox.min.x ).toFixed(1);
+        var y = ( ge.boundingBox.max.y - ge.boundingBox.min.y ).toFixed(1);
+        var z = ( ge.boundingBox.max.z - ge.boundingBox.min.z ).toFixed(1);
+
+        document.getElementById( 'size' ).innerHTML = 'size -> ' + 'x:' + x + " y: " + y + " z: " + z;
+
+    }
+
+    function updateModelInfo_PositionAndScale() {
+
+        if ( !transformControl.object ){
+            return;
+        }
+
+        var obj = transformControl.object;
+
+        var x_p = obj.position.x.toFixed(1);
+        var y_p = obj.position.y.toFixed(1);
+        var z_p = obj.position.z.toFixed(1);
+
+        var x_s = obj.scale.x.toFixed(1);
+        var y_s = obj.scale.y.toFixed(1);
+        var z_s = obj.scale.z.toFixed(1);
+
+        document.getElementById( 'position' ).innerHTML = 'position ->' + ' x:' + x_p + ' y:' + y_p + ' z:' + z_p;
+        document.getElementById( 'scale' ).innerHTML =       'scale ->' + ' x:' + x_s + ' y:' + y_s + ' z:' + z_s;
+
+    }
+
+    function test() {
+
+    }
+
+</script>
+
+</body>
+</html>
