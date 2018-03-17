@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>0-all-in-one</title>
+</head>
+<body>
+
+<br/>
+<br/>
+<div>
+    <button onclick="load_ascii_stl()">load ascii stl</button>
+    <button onclick="load_binary_stl()">load binary stl</button>
+    <button onclick="load_obj()">load obj</button>
+    <button onclick="save()">save</button>
+    <button onclick="test()">test</button>
+</div>
+
+<div id="scale_div">
+    <label> scale </label> <br/>
+    <input id="slider_scale" type="range" min="0.1" max="5" defaultValue="0.1" step="0.001" oninput="onInput_s()" onchange="onChange_s()"/> <label id="scale_value">  </label>
+</div>
+
+<div id="rotate_div">
+    <label> rotate </label> <br/>
+    <label> X </label> <input id="rotate_x" type="range" min="-180" max="180" defaultValue="0" oninput="onInput_rx()" onchange="onChange_rx()"/> <label id="rotate_x_value"> </label> <br/>
+    <label> Y </label> <input id="rotate_y" type="range" min="-180" max="180" defaultValue="0" oninput="onInput_ry()" onchange="onChange_ry()"/> <label id="rotate_y_value"> </label> <br/>
+    <label> Z </label> <input id="rotate_z" type="range" min="-180" max="180" defaultValue="0" oninput="onInput_rz()"onchange="onChange_rz()" /> <label id="rotate_z_value"> </label> <br/>
+</div>
+
+<br/>
+<div>
+    <label id="cur_mode">translate</label>
+    <br/>
+    <button onclick="setTransformControlMode_translate()">move</button>
+    <button onclick="setTransformControlMode_scale()">scale</button>
+    <button onclick="setTransformControlMode_rotate()">rotate</button>
+    <button onclick="test()">test</button>
+
+    <br/>
+    <label id="size"></label>
+    <br/>
+    <label id="position"></label>
+    <br/>
+    <label id="scale"></label>
+</div>
+
+<div >
+    <label id="loading_percent"> %0 </label> <br/>
+    <label id="loading_result"> ... </label> <br/>
+    <progress id="loading_progress" value="" max="1"/>
+</div>
+
+<div id="Stats-output"> </div>
+<div id="WebGL-output"> </div>
+
+<script src="../build/three.js"></script>
+<script src="js/controls/OrbitControls.js"></script>
+<script src="js/libs/stats.min.js"></script>
+<script src="js/libs/dat.gui.min.js"></script>
+<script src="js/controls/TransformControls.js"></script>
+<script src="js/controls/DragControls.js"></script>
+<script src="js/loaders/STLLoader.js"></script>
+<script src="js/loaders/OBJLoader.js"></script>
+<script src="js/exporters/STLExporter.js"></script>
+
+<script>
+
+    var scene, camera, renderer, group, stats, modelGroup;
+
+    var transformControl;
+
+    var modelMesh;
+
+    init();
+
+    addCubeToSceneAtZeroPoint(); //add a cube to mark the zero point in world
+
+    addEmptyPrintSpaceToGroup(); //add 6 sides(GridHelper) to construct it. size : 125 x 125 x 125
+
+    addOrbitControlsToRenderDom();
+
+    addOrbitControlsToRenderDom();
+
+    addTransformControlsToRenderDom();
+
+    addDragcontrolsToModelGroup();
+
+    animate();
+
+    function init() {
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 10000 );
+        camera.position.set( 0, 0, 550 );
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setClearColor(new THREE.Color(0xE8E8E8), 1.0);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMapEnabled = true;
+
+        scene.add(camera);
+
+        document.getElementById("WebGL-output").appendChild(renderer.domElement);
+
+        stats = new Stats();
+        document.getElementById("Stats-output").appendChild(stats.dom);
+
+        group = new THREE.Group();
+
+        modelGroup = new THREE.Group();
+        modelGroup.name = 'modelGroup';
+
+        group.add(modelGroup);
+
+        scene.add( group );
+
+        scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
+    }
+
+    function addEmptyPrintSpaceToGroup() {
+
+        // add 6 sides(GridHelper) of print space
+        var size = 125;
+        var divisions = 1;
+
+        var bottom = new THREE.GridHelper( size, divisions * 10  );
+        bottom.position.set( 0, -size/2, 0 );
+        bottom.material.opacity = 0.25;
+        bottom.material.transparent = true;
+        group.add( bottom );
+
+        var top = new THREE.GridHelper( size, divisions );
+        top.position.set( 0, size/2, 0 );
+        group.add( top );
+
+        var left = new THREE.GridHelper( size, divisions );
+        left.rotateZ ( Math.PI/2 );
+        left.position.set( -size/2, 0, 0 );
+        group.add( left );
+
+        var right = new THREE.GridHelper( size, divisions );
+        right.rotateZ ( Math.PI/2 );
+        right.position.set( size/2, 0, 0 );
+        group.add( right );
+
+        var front = new THREE.GridHelper( size, divisions );
+        front.rotateX ( Math.PI/2 );
+        front.position.set( 0, 0, size/2);
+        group.add( front );
+
+        var back = new THREE.GridHelper( size, divisions );
+        back.rotateX ( Math.PI/2 );
+        back.position.set( 0, 0, -size/2);
+        group.add( back );
+
+        for ( var k = 0; k < group.children.length; k += 1 ) {
+            if (group.children[ k ] instanceof THREE.GridHelper){
+                group.children[ k ].material.opacity = 0.25;
+                group.children[ k ].material.transparent = true;
+            }
+        }
+
+        var axis = new THREE.AxesHelper( 50 );
+        axis.position.y = -125/2;
+        group.add( axis );
+
+    }
+
+    function addCubeToSceneAtZeroPoint() {
+
+        var boxGeometry = new THREE.BoxGeometry( 5, 5, 5 );
+
+        for ( var i = 0; i < boxGeometry.faces.length; i += 2 ) {
+            var hex = Math.random() * 0xffffff;
+            boxGeometry.faces[ i ].color.setHex( hex );
+            boxGeometry.faces[ i + 1 ].color.setHex( hex );
+        }
+
+        var material = new THREE.MeshBasicMaterial( { vertexColors: THREE.FaceColors, overdraw: 0.5 } );
+        cube = new THREE.Mesh( boxGeometry, material );
+        cube.position.set( 0, 0, 0 );
+        cube.name = 'cube';
+        scene.add( cube );
+
+    }
+
+    function addOrbitControlsToRenderDom() {
+
+        var controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+        //tip : must call 'render()' rather than 'animate()', or UI lags
+        controls.addEventListener('change', render);
+
+    }
+
+    function animate() {
+
+        requestAnimationFrame( animate );
+        render();
+        stats.update();
+        transformControl.update();
+        updateModelInfo_PositionAndScale();
+
+    }
+
+    function render() {
+
+        renderer.render( scene, camera );
+
+    }
+
+    function addOrbitControlsToRenderDom() {
+
+        var controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+        //tip : must call 'render()' rather than 'animate()', or UI lags
+        controls.addEventListener('change', render);
+
+    }
+
+    function addTransformControlsToRenderDom() {
+
+        transformControl = new THREE.TransformControls( camera, renderer.domElement );
+        transformControl.addEventListener( 'change', render );
+        transformControl.addEventListener('mouseUp', updateModelInfo_Size );
+
+        scene.add( transformControl );
+
+    }
+
+    function addDragcontrolsToModelGroup() {
+
+        //only drag 'modelGroup.children'
+        var dragcontrols = new THREE.DragControls( modelGroup.children, camera, renderer.domElement );
+
+        dragcontrols.addEventListener( 'hoveron', function ( event ) {
+            console.log(event.object.name);
+            transformControl.attach( event.object );
+            // transformControl.space = 'world';
+
+
+        } );
+
+        dragcontrols.addEventListener( 'hoveroff', function ( event ) {
+
+        } );
+
+    }
+
+    function load_ascii_stl() {
+
+        var loader = new THREE.STLLoader();
+
+        var path = './models/stl/ascii/ascii.stl';
+        // path =  './t1.stl';
+
+        loader.load(
+
+            path,
+
+            function ( bufferGeometry ) {
+
+                onLoadModelSucceed( bufferGeometry );
+
+            },
+
+            onLoadModelProgress,
+
+            onLoadModelError
+
+        );
+    }
+
+    function load_binary_stl() {
+
+        var loader = new THREE.STLLoader();
+
+        var material = new THREE.MeshPhongMaterial( { color: 0xAAAAAA, specular: 0x111111, shininess: 200 } );
+
+        // var path = './models/stl/binary/SolidHead_bin.stl';
+        var path = './cube_bin.stl';
+
+        loader.load(
+
+            path,
+
+            function ( bufferGeometry ) {
+
+                onLoadModelSucceed( bufferGeometry );
+
+            },
+
+            onLoadModelProgress,
+
+            onLoadModelError
+
+        );
+
+    }
+
+    function load_obj() {
+
+        var loader = new THREE.OBJLoader();
+
+        loader.load(
+
+            'models/obj/male02/male02.obj',
+
+            //return container. container has several meshs(a mesh is one of line/mesh/point). mesh uses BufferGeometry
+            function ( container ) {
+
+                //there is a bug when merge two BufferGeometries :
+                //https://stackoverflow.com/questions/36450612/how-to-merge-two-buffergeometries-in-one-buffergeometry-in-three-js
+                //so use Geometry to merge
+                var geometry = new THREE.Geometry();
+
+                container.traverse( function ( child ) {
+
+                    if ( child instanceof THREE.Mesh ) {
+
+                        if ( child.geometry && child.geometry instanceof THREE.BufferGeometry ){
+
+                            var ge = new THREE.Geometry();
+                            ge.fromBufferGeometry(child.geometry);
+                            geometry.merge(ge);
+
+                        }
+
+                    }
+
+                } );
+
+                // container has several meshs, DragControls only affect "modelGroup.children"
+                // var dragcontrols = new THREE.DragControls( modelGroup.children, camera,renderer.domElement );
+                // so  1.need to merge all geometries to one geometry   2.new a Mesh and add it to modelGroup
+
+                // if 'modelGroup.add( container )', can not drag the container
+                // reason: container is Group and not implement '.raycast ( raycaster, intersects )'
+                // the Object3D implemented '.raycast' such as 'Mesh'  can be affected by DragControls
+
+                // if add every child(it is mesh) to modelGroup, only can drag a child, as seen, drag a piece of obj model
+                // must drag the whole obj model rather than a piece of it.
+
+                //BufferGeometry is an efficient alternative to Geometry
+                var bufferGeometry = new THREE.BufferGeometry();
+                bufferGeometry.fromGeometry( geometry );
+
+                onLoadModelSucceed( bufferGeometry );
+
+            },
+
+            onLoadModelProgress,
+
+            onLoadModelError
+
+        );
+
+    }
+
+    function save() {
+
+        var exporter = new THREE.STLExporter();
+        var output = exporter.parse(modelGroup);
+        download(output, 'out.stl', 'text/plain');
+
+    }
+
+    function download( text, name, type ) {
+
+        var a = document.createElement( "a" );
+        var file = new Blob( [text], { type: type } );
+        a.href = URL.createObjectURL( file );
+        a.download = name;
+        a.click();
+    }
+
+    function setTransformControlMode_translate() {
+
+        transformControl.setMode( 'translate' );
+        document.getElementById( 'cur_mode' ).innerHTML = 'translate';
+
+    }
+
+    function setTransformControlMode_scale() {
+
+        transformControl.setMode( 'scale' );
+        document.getElementById( 'cur_mode' ).innerHTML = 'scale';
+
+    }
+
+    function setTransformControlMode_rotate() {
+
+        transformControl.setMode( 'rotate' );
+        document.getElementById( 'cur_mode' ).innerHTML = 'rotate';
+
+    }
+
+    function updateModelInfo_Size(){
+
+        if ( ! modelMesh ){
+            return;
+        }
+
+        modelMesh.updateMatrix();
+        modelMesh.updateMatrixWorld( true );
+
+        var matrixWorld = modelMesh.matrixWorld;
+
+        console.log(JSON.stringify(matrixWorld));
+
+        //must use deepCopy
+        var bufferGemotry = modelMesh.geometry.clone();
+        bufferGemotry.computeBoundingBox();
+
+
+        //Bakes matrix transform directly into vertex coordinates.
+        bufferGemotry.applyMatrix( matrixWorld );
+        bufferGemotry.computeBoundingBox();
+
+        console.log('@@ ' + JSON.stringify(bufferGemotry.boundingBox) );
+
+        var x = ( bufferGemotry.boundingBox.max.x - bufferGemotry.boundingBox.min.x ).toFixed(1);
+        var y = ( bufferGemotry.boundingBox.max.y - bufferGemotry.boundingBox.min.y ).toFixed(1);
+        var z = ( bufferGemotry.boundingBox.max.z - bufferGemotry.boundingBox.min.z ).toFixed(1);
+
+        document.getElementById( 'size' ).innerHTML = 'size -> ' + 'x:' + x + " y: " + y + " z: " + z;
+
+        clingModelToBottom( bufferGemotry )
+
+    }
+
+    function updateModelInfo_PositionAndScale() {
+
+        if ( ! modelMesh ) {
+            return;
+        }
+
+        // var x_p = modelMesh.position.x.toFixed(1);
+        // var y_p = modelMesh.position.y.toFixed(1);
+        // var z_p = modelMesh.position.z.toFixed(1);
+        //
+        // var x_s = modelMesh.scale.x.toFixed(1);
+        // var y_s = modelMesh.scale.y.toFixed(1);
+        // var z_s = modelMesh.scale.z.toFixed(1);
+
+        var x_p = modelMesh.position.x;
+        var y_p = modelMesh.position.y;
+        var z_p = modelMesh.position.z;
+
+        var x_s = modelMesh.scale.x;
+        var y_s = modelMesh.scale.y;
+        var z_s = modelMesh.scale.z;
+
+
+        document.getElementById( 'position' ).innerHTML = 'position ->' + ' x:' + x_p + ' y:' + y_p + ' z:' + z_p;
+        document.getElementById( 'scale' ).innerHTML =       'scale ->' + ' x:' + x_s + ' y:' + y_s + ' z:' + z_s;
+
+    }
+
+    function test() {
+
+        modelGroup.updateMatrix();
+        modelGroup.updateMatrixWorld();
+        alert( JSON.stringify(modelGroup.matrix));
+        alert( JSON.stringify(modelGroup.matrixWorld));
+    }
+
+    function clingModelToBottom( bufferGemotry ){
+
+        bufferGemotry.computeBoundingBox();
+        // var y = bufferGemotry.boundingBox.max.y - bufferGemotry.boundingBox.min.y ;
+        // modelMesh.position.y = -( 125 / 2 - y / 2);
+
+       // var y = bufferGemotry.boundingBox.max.y - bufferGemotry.boundingBox.min.y ;
+        modelMesh.position.y += ( -125 / 2 - bufferGemotry.boundingBox.min.y);
+
+    }
+
+    function addBufferGemotryToModelGroup( bufferGemotry ){
+
+        document.getElementById("loading_result").innerHTML = 'parse succeed!';
+
+        if ( modelMesh ){
+            modelGroup.remove( modelMesh );
+        }
+
+        //1.preprocess Gemotry
+        //step-1: rotate x 90 degree
+        bufferGemotry.rotateX( -Math.PI/2 );
+
+        //step-2: set to symmetry
+        bufferGemotry.computeBoundingBox ();
+        var x = -( bufferGemotry.boundingBox.max.x + bufferGemotry.boundingBox.min.x ) / 2;
+        var y = -( bufferGemotry.boundingBox.max.y + bufferGemotry.boundingBox.min.y ) / 2;
+        var z = -( bufferGemotry.boundingBox.max.z + bufferGemotry.boundingBox.min.z ) / 2;
+        bufferGemotry.translate(x, y ,z);
+
+        bufferGemotry.computeBoundingBox ();
+
+        //2.new mesh
+        var material = new THREE.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
+
+        modelMesh = new THREE.Mesh( bufferGemotry, material );
+        modelMesh.position.set( 0, 0, 0 );
+        modelMesh.scale.set( 1, 1, 1 );
+        modelMesh.name = 'modelMesh';
+        modelGroup.add( modelMesh );
+
+    }
+
+
+    function onLoadModelSucceed( bufferGemotry ) {
+
+        document.getElementById("loading_result").innerHTML = 'parse succeed!';
+
+        addBufferGemotryToModelGroup( bufferGemotry )
+
+        clingModelToBottom( bufferGemotry );
+    }
+
+    function onLoadModelProgress( event ) {
+
+        var progress = event.loaded / event.total;
+        document.getElementById( "loading_percent" ).innerHTML = ( progress * 100 ).toFixed( 1 ) + "%";
+        document.getElementById( "loading_progress" ).value = progress;
+
+    }
+
+    function onLoadModelError( event ) {
+
+        document.getElementById( "loading_result" ).innerHTML = 'parse error!';
+
+    }
+
+    //scale
+    function onInput_s() {
+
+        var value = document.getElementById("slider_scale").value;
+        document.getElementById("scale_value").innerHTML = value;
+
+        if ( modelMesh ) {
+            modelMesh.scale.set(value, value, value );
+        }
+    }
+
+    function onChange_s() {
+        onInput_s();
+        updateModelInfo_Size();
+    }
+
+    //rotate
+    function onInput_rx() {
+        var value = document.getElementById("rotate_x").value;
+        document.getElementById("rotate_x_value").innerHTML = value;
+
+        if ( modelMesh ) {
+            modelMesh.rotation.x = Math.PI*value/180;
+        }
+    }
+
+    function onChange_rx() {
+        onInput_rx();
+        updateModelInfo_Size();
+    }
+
+    function onInput_ry() {
+        var value = document.getElementById("rotate_y").value;
+        document.getElementById("rotate_y_value").innerHTML = value;
+
+        if ( modelMesh ) {
+            modelMesh.rotation.y = Math.PI*value/180;
+        }
+    }
+
+    function onChange_ry() {
+        onInput_ry();
+        updateModelInfo_Size();
+    }
+
+    function onInput_rz() {
+        var value = document.getElementById("rotate_z").value;
+        document.getElementById("rotate_z_value").innerHTML = value;
+
+        if ( modelMesh ) {
+            modelMesh.rotation.z = Math.PI*value/180;
+        }
+    }
+
+    function onChange_rz() {
+        onInput_rz();
+        updateModelInfo_Size();
+    }
+</script>
+
+</body>
+</html>
