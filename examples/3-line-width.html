@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>3-line-width</title>
+</head>
+<body>
+
+<div id="Stats-output"> </div>
+<div id="WebGL-output"> </div>
+
+<script src="../build/three.js"></script>
+<script src="js/controls/OrbitControls.js"></script>
+<script src="js/libs/stats.min.js"></script>
+
+<script>
+
+    //linewidth may not respected on macOS
+
+    var scene, camera, renderer, group, stats;
+
+    init();
+
+    addOrbitControls();
+
+    addLines();
+
+    animate();
+
+    function init() {
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 2000 );
+        camera.position.set( 0, 0, 450 );
+        camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setClearColor( new THREE.Color( 0xE8E8E8 ), 1.0 );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.shadowMapEnabled = true;
+
+        scene.add( camera );
+
+        document.getElementById( "WebGL-output" ).appendChild( renderer.domElement );
+
+        stats = new Stats();
+        document.getElementById( "Stats-output" ).appendChild( stats.dom );
+
+        group = new THREE.Group();
+        scene.add( group );
+    }
+
+    function addOrbitControls() {
+
+        var controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        //tip : must call 'render()' rather than 'animate()', or UI lags
+        controls.addEventListener('change', render);
+
+    }
+
+    function animate() {
+
+        requestAnimationFrame( animate );
+        render();
+        stats.update();
+
+    }
+
+    function render() {
+
+        renderer.render( scene, camera );
+
+    }
+    
+    function addLines() {
+
+        //linewidth not respected in Mac OS Chrome 55.0.2883.95  https://github.com/mrdoob/three.js/issues/10357
+        //in my Mac book 10.13.3
+        //Safari is OK
+        //Chrome is not respected
+        var material = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1, linewidth: 10 } );
+        var geometry = new THREE.Geometry();
+        geometry.vertices.push(new THREE.Vector3( -100, 0, 0) );
+        geometry.vertices.push(new THREE.Vector3( 0, 100, 0) );
+        geometry.vertices.push(new THREE.Vector3( 100, 0, 0) );
+        var line = new THREE.Line( geometry, material );
+        scene.add( line );
+
+    }
+
+</script>
+
+</body>
+</html>
