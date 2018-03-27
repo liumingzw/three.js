@@ -8,6 +8,8 @@
 <div>
     <br/><br/>
     <button onclick="change_material()">change material</button>
+    <button onclick="setInvisible()">set invisible</button>
+    <button onclick="setVisible()">set visible</button>
 </div>
 
 <div id="Stats-output"> </div>
@@ -89,6 +91,7 @@
         //in my Mac book 10.13.3
         //Safari is OK
         //Chrome is not respected
+        //blog：https://blog.artzub.com/webgl-width-of-line-into-the-windows-browsers-f199d7252fc
         material = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1, linewidth: 5, linecap: 'round', linejoin:  'round' } );
         var geometry = new THREE.Geometry();
         geometry.vertices.push(new THREE.Vector3( -100, 0, 0) );
@@ -103,6 +106,18 @@
 
         material = new THREE.LineBasicMaterial( { color: 0x00ff00, opacity: 1, linewidth: 5, linecap: 'round', linejoin:  'round' } );
         line.material = material;
+
+    }
+
+    function setInvisible() {
+
+        line.visible = false;
+
+    }
+
+    function setVisible() {
+
+        line.visible = true;
 
     }
 
