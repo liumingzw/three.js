@@ -1,5 +1,44 @@
 'use strict';
 
+// 解析 Gcode 的思路
+// 注意：
+// -1 此函数，不是为了解析通用 Gcode，而是为了专门用于解析 CuraEngine 生成的 Gcode
+// -2 CuraEngine 生成的 Gcode 含有的注释信息，用于标识 gcode 的 type，如 support 或者 wall outer。不同的 type 要渲染成不同的颜色
+// -3 travel 的 cmd，gcode文件中没有做区分。但是可以通过代码区分。也就是：support的路径中，同时包含【 打印 和 travel 】
+// -4 如何判断 travel？此行 cmd 为 G0/G1，但是不包含 e，则为 travel
+// -5 如何判断回抽？此行 cmd 为 G0/G1，且包含 e，但当前 e 的值小于上一个 e    todo：回抽的同时 z hop。要在渲染路径上看的到才可以
+// -6 travel 和回抽，z hop 如何渲染？都不吐料，渲染成同一种颜色
+// -7 注意 G92
+// -8 为了简化逻辑，解析之前，人为添加自定义的type：Travel。将 Travel 也认为是一种 type
+// -9 渲染开始的标志：G28。注意 G28 有两种格式
+// -10 渲染的结束：直到 Gcode 文件的最后一行
+// -11 控制显示的两种方式：
+//         1. 显示某些层
+//         2. 显示某些 type
+// -12 两种显示方式是交叉的，因此需要增加变量，用于控制 visiblity
+
+// step-0 预处理：人为添加自定义的 type（通过注释）：Travel
+// step-1 读取 gcode 文件，按行解析，得到一个个的 vertice，存储在 vertice buffer 中
+// step-2 在合适的时候，将 vertice buffer 生成一条线，将线存储在 line buffer 中。
+// 清空 vertice buffer，并且保留最后一个点
+// 保留最后一个点的原因：例如：A-->B--->C-->D   A，B，C 构成一条线，C，D 构成一条线
+// 合适的时候？layer changed 和 type changed 的时候
+// step-3 在合适的时候（ layer changed ），处理 line buffer，生成一个 Layer instance
+// step-4 解析到最后一行的时候，要处理 vertice buffer 和 line buffer 的数据
+
+// layers：存储 layer 的数组
+
+// layer 的属性：
+//      lines[]  一层有很多条线
+//      index    由下到上，从 1 开始
+//      z
+//      name
+
+// line 的属性：
+//      gemotry + material
+//      userData ：type（gcode 的 type）    index：等于 layer 的 index
+
+
 function Layer ( lines, index, z, name ) {
 
 	this.lines = lines;
@@ -44,6 +83,7 @@ THREE.GCodeLoader2.prototype.init = function() {
         'SKIRT' : new THREE.LineBasicMaterial( { color: 0xFa8c35, linewidth: 2 } ), //Sun_orange
         'SUPPORT' : new THREE.LineBasicMaterial( { color: 0x4b0082, linewidth: 2 } ), //Sun_indigo
         'FILL' : new THREE.LineBasicMaterial( { color: 0x8d4bbb, linewidth: 2 } ), //Sun_purple
+        'Travel' : new THREE.LineBasicMaterial( { color: 0x44cef6, linewidth: 2 } ), //Sun_blue;
         'UNKNOWN' : new THREE.LineBasicMaterial( { color: 0x4b0082, linewidth: 2 } ) //Sun_indigo
 
     }
@@ -57,6 +97,7 @@ THREE.GCodeLoader2.prototype.init = function() {
         'SKIRT' : [],
         'SUPPORT' : [],
         'FILL' : [],
+        'Travel' : [],
         'UNKNOWN' : []
 
     }
@@ -69,6 +110,7 @@ THREE.GCodeLoader2.prototype.init = function() {
         'SKIRT' : true,
         'SUPPORT' : true,
         'FILL' : true,
+        'Travel' : true,
         'UNKNOWN' : true
 
     }
@@ -170,6 +212,9 @@ THREE.GCodeLoader2.prototype.parse = function ( data ) {
         //clear
         verticeBuffer.splice( 0, verticeBuffer.length );
 
+        //add last vertice
+        verticeBuffer.push( geometry.vertices[ geometry.vertices.length-1 ] );
+
 		var type = scope.state.line_type;
 
         //select color by type
@@ -205,6 +250,46 @@ THREE.GCodeLoader2.prototype.parse = function ( data ) {
     }
 
     var gcodeLines = data.split( '\n' );
+
+	var lastType = 'UNKNOWN';
+	var isTraveling = false;
+
+    for ( var k = 0; k < gcodeLines.length; k ++ ) {
+
+        var gcodeLine = gcodeLines[ k ];
+
+        if( gcodeLine.trim().indexOf( ';TYPE:' ) === 0 ) {
+            lastType = gcodeLine.replace( ';TYPE:', '' );
+            continue;
+        }
+
+        if( gcodeLine.trim().indexOf( 'G0' ) === 0 || gcodeLine.trim().indexOf( 'G1' ) === 0  ) {
+
+            if ( gcodeLine.split( ';' )[0].indexOf( 'E' ) === -1 ){
+                if ( isTraveling ){
+                    continue;
+                }
+                isTraveling = true;
+                gcodeLines.splice( k, 0, ";TYPE:Travel" );
+                k++;
+            }else {
+                if (!isTraveling ){
+                    continue;
+                }
+                isTraveling = false;
+                gcodeLines.splice( k, 0, ";TYPE:" + lastType );
+                k++;
+            }
+        }
+
+    }
+
+    // for ( var k = 0; k < gcodeLines.length; k ++ ) {
+    //
+    //     var gcodeLine = gcodeLines[ k ];
+    //     console.log( gcodeLine );
+    //
+    // }
 
 	for ( var i = 0; i < gcodeLines.length; i ++ ) {
 
@@ -288,7 +373,7 @@ THREE.GCodeLoader2.prototype.parse = function ( data ) {
 
             //todo : 2 cases
             //case-1 : G28
-            //case-2 : G28
+            //case-2 : G28 X0
 
         } else if ( cmd === 'G0' || cmd === 'G1' ) {
 
@@ -299,6 +384,7 @@ THREE.GCodeLoader2.prototype.parse = function ( data ) {
             scope.state.x = ( args.x || scope.state.x );
             scope.state.y = ( args.y || scope.state.y );
             scope.state.z = ( args.z || scope.state.z );
+
 
             verticeBuffer.push( new THREE.Vector3( scope.state.x, scope.state.y, scope.state.z ) );
 
