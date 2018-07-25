@@ -612,6 +612,9 @@
 		this.size = 1;
 		this.axis = null;
 
+        // add by Walker
+        this.uniformScale = false;
+
 		var scope = this;
 
 		var _mode = "translate";
@@ -978,10 +981,19 @@
 
 						point.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
 
-						if ( scope.axis === "X" ) scope.object.scale.x = oldScale.x * ( 1 + point.x / oldScale.x );
-						if ( scope.axis === "Y" ) scope.object.scale.y = oldScale.y * ( 1 + point.y / oldScale.y );
-						if ( scope.axis === "Z" ) scope.object.scale.z = oldScale.z * ( 1 + point.z / oldScale.z );
-
+						if (scope.uniformScale) {
+                            var scaleFactor = 1;
+                            if ( scope.axis === "X" ) scaleFactor = (1 + point.x / oldScale.x );
+                            if ( scope.axis === "Y" ) scaleFactor = (1 + point.y / oldScale.y );
+                            if ( scope.axis === "Z" ) scaleFactor = (1 + point.z / oldScale.z );
+                            scope.object.scale.x = oldScale.x * scaleFactor;
+                            scope.object.scale.y = oldScale.y * scaleFactor;
+                            scope.object.scale.z = oldScale.z * scaleFactor;
+						} else {
+                            if ( scope.axis === "X" ) scope.object.scale.x = oldScale.x * ( 1 + point.x / oldScale.x );
+                            if ( scope.axis === "Y" ) scope.object.scale.y = oldScale.y * ( 1 + point.y / oldScale.y );
+                            if ( scope.axis === "Z" ) scope.object.scale.z = oldScale.z * ( 1 + point.z / oldScale.z );
+                        }
 					}
 
 				}

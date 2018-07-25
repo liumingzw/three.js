@@ -17,6 +17,8 @@
 </div>
 <div style="background-color: #e0e0e0">
     <button onclick="reset()">reset</button>
+    <button onclick="setUniformScale(true)">uniform scale</button>
+    <button onclick="setUniformScale(false)">normal scale</button>
 </div>
 
 <div id="WebGL-output"> </div>
@@ -324,6 +326,10 @@
 
     function removeMouseUpListener() {
         renderer.domElement.removeEventListener("mouseup", onDomMouseUp, false);
+    }
+    
+    function setUniformScale(value) {
+        transformControl.uniformScale = value;
     }
 </script>
 
