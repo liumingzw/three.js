@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>1-operate-multiple-models</title>
+</head>
+<body>
+
+<div style="background-color: #e0e0e0">
+    <button onclick="setTransformControlMode('translate')">move</button>
+    <button onclick="setTransformControlMode('scale')">scale</button>
+    <button onclick="setTransformControlMode('rotate')">rotate</button>
+    <label>current mode: </label>
+    <label id="transformControlMode"></label>
+</div>
+<div style="background-color: #e0e0e0">
+    <button onclick="deselect()">deselect</button>
+</div>
+<div style="background-color: #e0e0e0">
+    <button onclick="reset()">reset</button>
+</div>
+
+<div id="WebGL-output"> </div>
+
+<script src="../../../build/three.js"></script>
+<script src="../js/MSRControls.js"></script>
+<script src="../../js/controls/DragControls.js"></script>
+<script src="../../js/controls/TransformControls.js"></script>
+
+<script>
+    var scene, camera, renderer, group;
+    var modelGroup; // the all models ard added into modelGroup
+    var dragControls, msrControls, transformControl;
+    var selectedModel;
+
+    var operating = false;
+
+    init();
+
+    addPrintSpaceToGroup();
+
+    addModelsToModelGroup();
+
+    animate();
+
+    function init() {
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 10000 );
+        camera.position.set( 0, 0, 550 );
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setClearColor(new THREE.Color(0xE8E8E8), 1.0);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMapEnabled = true;
+
+        scene.add(camera);
+
+        document.getElementById("WebGL-output").appendChild(renderer.domElement);
+
+        group = new THREE.Group();
+
+        modelGroup = new THREE.Group();
+        modelGroup.name = 'modelGroup';
+
+        group.add(modelGroup);
+
+        scene.add( group );
+
+        scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
+
+        window.addEventListener( 'resize', onWindowResize, false );
+
+        // must call before init msrControls&transformControl
+        // mouse up must be called first
+        addMouseLeftUpListener();
+
+        //add controls
+        //move + scale + rotate
+        msrControls = new THREE.MSRControls(group, camera, renderer.domElement);
+        msrControls.addEventListener(
+            'mouseDown',
+            function () {
+                console.log('msr mouseDown');
+            }
+        );
+        msrControls.addEventListener(
+            'mouseUp',
+            function () {
+                console.log('msr mouseUp');
+            }
+        );
+        msrControls.addEventListener(
+            'moveStart',
+            function () {
+                console.log('msr moveStart');
+                operating = true;
+            }
+        );
+        msrControls.addEventListener(
+            'moveEnd',
+            function () {
+                console.log('msr moveEnd');
+                operating = false;
+            }
+        );
+
+        transformControl = new THREE.TransformControls( camera, renderer.domElement );
+        transformControl.space = 'local';
+        setTransformControlMode('translate')
+        transformControl.addEventListener(
+            'change',
+            function () {
+                // console.log('changge');
+                render();
+            }
+        );
+        transformControl.addEventListener(
+            'mouseDown',
+            function () {
+                console.log('trans mouseDown');
+                operating = true;
+            }
+        );
+        transformControl.addEventListener(
+            'mouseUp',
+            function (event) {
+                console.log('trans mouseUp ');
+                operating = false;
+            }
+        );
+        transformControl.addEventListener('objectChange', function () {
+            // update model property value
+            // console.log('objectChange');
+        });
+        scene.add(transformControl);
+
+        //only drag 'modelGroup.children'
+        dragControls = new THREE.DragControls( modelGroup.children, camera, renderer.domElement );
+        dragControls.enabled = false;// not allow drag. drag is controlled by TransformControls
+        dragControls.addEventListener( 'hoveron', function ( event ) {
+            console.log('hoveron');
+            const modelMesh = event.object;
+            // model select changed
+            if (modelMesh !== selectedModel && !operating){
+                const name = selectedModel ? selectedModel.name : 'null';
+                console.log('model selected change: ' + name + ' -> ' + modelMesh.name);
+                //remove last 'wireFrame'
+                selectedModel &&  selectedModel.remove(selectedModel.getObjectByName ('wireFrame'));
+                //add 'wireFrame'
+                var geo = new THREE.EdgesGeometry( modelMesh.geometry ); // or WireframeGeometry
+                var mat = new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2 } );
+                var wireframe = new THREE.LineSegments( geo, mat );
+                wireframe.name = 'wireFrame';
+                wireframe.position.set( 0, 0, 0 );
+                wireframe.scale.set( 1, 1, 1 );
+                modelMesh.add( wireframe );
+
+                selectedModel = modelMesh;
+                transformControl.attach(modelMesh);
+            }
+        });
+        dragControls.addEventListener( 'hoveroff', function ( event ) {
+            console.log('hoveroff');
+        });
+        dragControls.addEventListener( 'dragstart', function ( event ) {
+            console.log('dragstart');
+            // msrControls.enabled = false;
+        });
+        dragControls.addEventListener( 'dragend', function ( event ) {
+            console.log('dragend');
+        });
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+    }
+
+    function addPrintSpaceToGroup() {
+        // add 6 sides(GridHelper) of print space
+        var size = 125;
+        var divisions = 1;
+
+        var bottom = new THREE.GridHelper( size, divisions * 10  );
+        bottom.position.set( 0, -size/2, 0 );
+        bottom.material.opacity = 0.25;
+        bottom.material.transparent = true;
+        group.add( bottom );
+
+        var top = new THREE.GridHelper( size, divisions );
+        top.position.set( 0, size/2, 0 );
+        group.add( top );
+
+        var left = new THREE.GridHelper( size, divisions );
+        left.rotateZ ( Math.PI/2 );
+        left.position.set( -size/2, 0, 0 );
+        group.add( left );
+
+        var right = new THREE.GridHelper( size, divisions );
+        right.rotateZ ( Math.PI/2 );
+        right.position.set( size/2, 0, 0 );
+        group.add( right );
+
+        var front = new THREE.GridHelper( size, divisions );
+        front.rotateX ( Math.PI/2 );
+        front.position.set( 0, 0, size/2);
+        group.add( front );
+
+        var back = new THREE.GridHelper( size, divisions );
+        back.rotateX ( Math.PI/2 );
+        back.position.set( 0, 0, -size/2);
+        group.add( back );
+
+        for ( var k = 0; k < group.children.length; k += 1 ) {
+            if (group.children[ k ] instanceof THREE.GridHelper){
+                group.children[ k ].material.opacity = 0.25;
+                group.children[ k ].material.transparent = true;
+            }
+        }
+
+        var axis = new THREE.AxesHelper( 50 );
+        axis.position.y = -125/2;
+        group.add( axis );
+    }
+
+    function addModelsToModelGroup() {
+        function generateCube() {
+            var boxGeometry = new THREE.BoxGeometry( 5, 5, 5 );
+            for ( var i = 0; i < boxGeometry.faces.length; i += 2 ) {
+                var hex = Math.random() * 0xffffff;
+                boxGeometry.faces[ i ].color.setHex( hex );
+                boxGeometry.faces[ i + 1 ].color.setHex( hex );
+            }
+            var material = new THREE.MeshBasicMaterial( { vertexColors: THREE.FaceColors, overdraw: 0.5 } );
+            cube = new THREE.Mesh( boxGeometry, material );
+            cube.name = 'cube';
+            cube.scale.set( 10, 10, 10 );
+            return cube;
+        }
+
+        function generatePlane() {
+            var geometry = new THREE.PlaneGeometry( 80, 80, 80 );
+            var material = new THREE.MeshBasicMaterial( {color: 0xe0ffe0, side: THREE.DoubleSide} );
+            var plane = new THREE.Mesh( geometry, material );
+            return plane;
+        }
+
+        function generateLine(){
+            var geometry = new THREE.Geometry();
+            geometry.vertices.push(new THREE.Vector3( -50, 0, 0) );
+            geometry.vertices.push(new THREE.Vector3( 0, 50, 0) );
+            geometry.vertices.push(new THREE.Vector3( 50, 0, 0) );
+            var material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+            var line = new THREE.Line( geometry, material );
+            return line;
+        }
+
+        var cubeMesh1 = generateCube();
+        cubeMesh1.position.set(-50, 0, 0);
+        cubeMesh1.name = 'cube-1';
+        modelGroup.add(cubeMesh1);
+
+        var cubeMesh2 = generateCube();
+        cubeMesh2.name = 'cube-2';
+        cubeMesh2.position.set(50, 0, 0);
+        modelGroup.add(cubeMesh2);
+
+        var plane = generatePlane();
+        plane.name = 'plane';
+        plane.position.set(0, 100, 0);
+        modelGroup.add(plane);
+
+        var line = generateLine();
+        line.name = 'line';
+        line.position.set(100, 100, 0);
+        modelGroup.add(line);
+    }
+
+    function animate() {
+        requestAnimationFrame( animate );
+        render();
+        transformControl.update();
+    }
+
+    function render() {
+        renderer.render( scene, camera );
+    }
+
+    //translate, rotate, scale
+    function setTransformControlMode(mode) {
+        if (mode === 'translate' ||
+            mode === 'rotate' ||
+            mode === 'scale'){
+            transformControl.setMode(mode);
+            document.getElementById( "transformControlMode" ).innerHTML =  mode;
+        }
+    }
+    
+    function reset() {
+        msrControls.reset();
+    }
+    
+    function deselect() {
+        selectedModel &&  selectedModel.remove(selectedModel.getObjectByName ('wireFrame'));
+        selectedModel = undefined;
+        transformControl.detach(); // make axis invisible
+    }
+
+    function addMouseLeftUpListener() {
+        renderer.domElement.addEventListener(
+            "mouseup",
+            function (event) {
+                // only click mouse left
+                if (!operating && event.button === THREE.MOUSE.LEFT){
+                    deselect();
+                }
+            },
+            false
+        );
+    }
+
+    function removeMouseUpListener() {
+        renderer.domElement.removeEventListener("mouseup", onDomMouseUp, false);
+    }
+</script>
+
+</body>
+</html>
