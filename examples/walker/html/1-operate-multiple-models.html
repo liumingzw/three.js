@@ -9,16 +9,36 @@
     <button onclick="setTransformControlMode('translate')">move</button>
     <button onclick="setTransformControlMode('scale')">scale</button>
     <button onclick="setTransformControlMode('rotate')">rotate</button>
-    <label>current mode: </label>
+    <label>mode: </label>
     <label id="transformControlMode"></label>
 </div>
+
+<div style="background-color: #e0e0e0">
+    <button onclick="setTranslateSpace('world')">space->world</button>
+    <button onclick="setTranslateSpace('local')">space->local</button>
+    <label>space: </label>
+    <label id="transformControlSpace"></label>
+</div>
+
+<div style="background-color: #e0e0e0">
+    <button onclick="setUniformScale(true)">uniformScale->true</button>
+    <button onclick="setUniformScale(false)">uniformScale->false</button>
+    <label>uniformScale: </label>
+    <label id="uniformScale"></label>
+</div>
+
+<div style="background-color: #e0e0e0">
+    <button onclick="setTranslateInParent(true)">translateInParent->true</button>
+    <button onclick="setTranslateInParent(false)">translateInParent->false</button>
+    <label>translateInParent: </label>
+    <label id="translateInParent"></label>
+</div>
+
 <div style="background-color: #e0e0e0">
     <button onclick="deselect()">deselect</button>
 </div>
 <div style="background-color: #e0e0e0">
     <button onclick="reset()">reset</button>
-    <button onclick="setUniformScale(true)">uniform scale</button>
-    <button onclick="setUniformScale(false)">normal scale</button>
 </div>
 
 <div id="WebGL-output"> </div>
@@ -84,51 +104,48 @@
         msrControls.addEventListener(
             'mouseDown',
             function () {
-                console.log('msr mouseDown');
             }
         );
         msrControls.addEventListener(
             'mouseUp',
             function () {
-                console.log('msr mouseUp');
             }
         );
         msrControls.addEventListener(
             'moveStart',
             function () {
-                console.log('msr moveStart');
                 operating = true;
             }
         );
         msrControls.addEventListener(
             'moveEnd',
             function () {
-                console.log('msr moveEnd');
                 operating = false;
             }
         );
 
         transformControl = new THREE.TransformControls( camera, renderer.domElement );
-        transformControl.space = 'local';
+
+        setTranslateSpace('local');
+        setTranslateInParent(true);
         setTransformControlMode('translate')
+        setUniformScale(true);
+
         transformControl.addEventListener(
             'change',
             function () {
-                // console.log('changge');
                 render();
             }
         );
         transformControl.addEventListener(
             'mouseDown',
             function () {
-                console.log('trans mouseDown');
                 operating = true;
             }
         );
         transformControl.addEventListener(
             'mouseUp',
             function (event) {
-                console.log('trans mouseUp ');
                 operating = false;
             }
         );
@@ -142,7 +159,6 @@
         dragControls = new THREE.DragControls( modelGroup.children, camera, renderer.domElement );
         dragControls.enabled = false;// not allow drag. drag is controlled by TransformControls
         dragControls.addEventListener( 'hoveron', function ( event ) {
-            console.log('hoveron');
             const modelMesh = event.object;
             // model select changed
             if (modelMesh !== selectedModel && !operating){
@@ -160,18 +176,15 @@
                 modelMesh.add( wireframe );
 
                 selectedModel = modelMesh;
+                // modelMesh.parent.rotateX(3.14/6);
                 transformControl.attach(modelMesh);
             }
         });
         dragControls.addEventListener( 'hoveroff', function ( event ) {
-            console.log('hoveroff');
         });
         dragControls.addEventListener( 'dragstart', function ( event ) {
-            console.log('dragstart');
-            // msrControls.enabled = false;
         });
         dragControls.addEventListener( 'dragend', function ( event ) {
-            console.log('dragend');
         });
     }
 
@@ -273,12 +286,12 @@
         var plane = generatePlane();
         plane.name = 'plane';
         plane.position.set(0, 100, 0);
-        modelGroup.add(plane);
+        // modelGroup.add(plane);
 
         var line = generateLine();
         line.name = 'line';
         line.position.set(100, 100, 0);
-        modelGroup.add(line);
+        // modelGroup.add(line);
     }
 
     function animate() {
@@ -300,6 +313,25 @@
             document.getElementById( "transformControlMode" ).innerHTML =  mode;
         }
     }
+
+    function setTranslateSpace(space) {
+        if (space === 'local' ||
+            space === 'world'){
+            transformControl.setSpace(space);
+            document.getElementById( "transformControlSpace" ).innerHTML =  space;
+        }
+    }
+
+    function setTranslateInParent(value) {
+        transformControl.translateInParent = value;
+        document.getElementById( "translateInParent" ).innerHTML =  value;
+    }
+
+    function setUniformScale(value) {
+        transformControl.uniformScale = value;
+        document.getElementById( "uniformScale" ).innerHTML =  value;
+    }
+
     
     function reset() {
         msrControls.reset();
@@ -328,9 +360,6 @@
         renderer.domElement.removeEventListener("mouseup", onDomMouseUp, false);
     }
     
-    function setUniformScale(value) {
-        transformControl.uniformScale = value;
-    }
 </script>
 
 </body>

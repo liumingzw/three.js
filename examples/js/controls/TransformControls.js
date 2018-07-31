@@ -614,6 +614,8 @@
 
         // add by Walker
         this.uniformScale = false;
+        this.translateInParent = true;
+        var parentRotation = new THREE.Euler();
 
 		var scope = this;
 
@@ -675,7 +677,7 @@
 
 		var worldPosition = new THREE.Vector3();
 		var worldRotation = new THREE.Euler();
-		var worldRotationMatrix  = new THREE.Matrix4();
+		var oldWorldRotationMatrix  = new THREE.Matrix4();
 		var camPosition = new THREE.Vector3();
 		var camRotation = new THREE.Euler();
 
@@ -803,8 +805,14 @@
 			}
 
 			if ( scope.space === "local" ) {
+                if (_mode === 'translate' && scope.translateInParent) {
+                    scope.object.parent.updateMatrixWorld();
+                    parentRotation.setFromRotationMatrix( tempMatrix.extractRotation( scope.object.parent.matrixWorld ) );
+                    _gizmo[ _mode ].update( parentRotation, eye );
+                } else {
+                    _gizmo[ _mode ].update( worldRotation, eye );
+				}
 
-				_gizmo[ _mode ].update( worldRotation, eye );
 
 			} else if ( scope.space === "world" ) {
 
@@ -877,7 +885,7 @@
 						oldScale.copy( scope.object.scale );
 
 						oldRotationMatrix.extractRotation( scope.object.matrix );
-						worldRotationMatrix.extractRotation( scope.object.matrixWorld );
+						oldWorldRotationMatrix.extractRotation( scope.object.matrixWorld );
 
 						parentRotationMatrix.extractRotation( scope.object.parent.matrixWorld );
 						parentScale.setFromMatrixScale( tempMatrix.getInverse( scope.object.parent.matrixWorld ) );
@@ -916,13 +924,15 @@
 
 				if ( scope.space === "local" ) {
 
-					point.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
+					point.applyMatrix4( tempMatrix.getInverse( oldWorldRotationMatrix ) );
 
 					if ( scope.axis.search( "X" ) === - 1 ) point.x = 0;
 					if ( scope.axis.search( "Y" ) === - 1 ) point.y = 0;
 					if ( scope.axis.search( "Z" ) === - 1 ) point.z = 0;
 
-					point.applyMatrix4( oldRotationMatrix );
+					if (_mode === 'translate' && !scope.translateInParent) {
+                        point.applyMatrix4( oldRotationMatrix );
+					}
 
 					scope.object.position.copy( oldPosition );
 					scope.object.position.add( point );
@@ -946,7 +956,7 @@
 
 					if ( scope.space === "local" ) {
 
-						scope.object.position.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
+						scope.object.position.applyMatrix4( tempMatrix.getInverse( oldWorldRotationMatrix ) );
 
 					}
 
@@ -956,7 +966,7 @@
 
 					if ( scope.space === "local" ) {
 
-						scope.object.position.applyMatrix4( worldRotationMatrix );
+						scope.object.position.applyMatrix4( oldWorldRotationMatrix );
 
 					}
 
@@ -979,7 +989,7 @@
 
 					} else {
 
-						point.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
+						point.applyMatrix4( tempMatrix.getInverse( oldWorldRotationMatrix ) );
 
 						if (scope.uniformScale) {
                             var scaleFactor = 1;
@@ -1016,7 +1026,7 @@
 					tempQuaternion.setFromRotationMatrix( tempMatrix.getInverse( parentRotationMatrix ) );
 
 					quaternionE.setFromAxisAngle( eye, rotation.z - offsetRotation.z );
-					quaternionXYZ.setFromRotationMatrix( worldRotationMatrix );
+					quaternionXYZ.setFromRotationMatrix( oldWorldRotationMatrix );
 
 					tempQuaternion.multiplyQuaternions( tempQuaternion, quaternionE );
 					tempQuaternion.multiplyQuaternions( tempQuaternion, quaternionXYZ );
@@ -1029,7 +1039,7 @@
 
 					tempQuaternion.setFromRotationMatrix( tempMatrix.getInverse( parentRotationMatrix ) );
 					quaternionX.setFromAxisAngle( quaternionE, - point.clone().angleTo( tempVector ) );
-					quaternionXYZ.setFromRotationMatrix( worldRotationMatrix );
+					quaternionXYZ.setFromRotationMatrix( oldWorldRotationMatrix );
 
 					tempQuaternion.multiplyQuaternions( tempQuaternion, quaternionX );
 					tempQuaternion.multiplyQuaternions( tempQuaternion, quaternionXYZ );
@@ -1038,9 +1048,9 @@
 
 				} else if ( scope.space === "local" ) {
 
-					point.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
+					point.applyMatrix4( tempMatrix.getInverse( oldWorldRotationMatrix ) );
 
-					tempVector.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
+					tempVector.applyMatrix4( tempMatrix.getInverse( oldWorldRotationMatrix ) );
 
 					rotation.set( Math.atan2( point.z, point.y ), Math.atan2( point.x, point.z ), Math.atan2( point.y, point.x ) );
 					offsetRotation.set( Math.atan2( tempVector.z, tempVector.y ), Math.atan2( tempVector.x, tempVector.z ), Math.atan2( tempVector.y, tempVector.x ) );
@@ -1088,7 +1098,7 @@
 
 					}
 
-					quaternionXYZ.setFromRotationMatrix( worldRotationMatrix );
+					quaternionXYZ.setFromRotationMatrix( oldWorldRotationMatrix );
 
 					if ( scope.axis === "X" ) tempQuaternion.multiplyQuaternions( tempQuaternion, quaternionX );
 					if ( scope.axis === "Y" ) tempQuaternion.multiplyQuaternions( tempQuaternion, quaternionY );
