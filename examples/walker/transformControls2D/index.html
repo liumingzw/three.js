@@ -7,6 +7,7 @@
 
 <div>
     <button onclick="test()">test</button>
+    <button onclick="transform()">transform</button>
 </div>
 
 
@@ -27,8 +28,7 @@
 
     init();
 
-    addPlane();
-
+    addGrid();
     addImage();
 
     addTransformControls();
@@ -54,17 +54,19 @@
         document.getElementById( "WebGL-output" ).appendChild( renderer.domElement );
 
         group = new THREE.Group();
+        // modelGroup.scale.set(2,2,2);
         modelGroup = new THREE.Group();
+        // modelGroup.scale.set(2,2,2);
+        // modelGroup.rotateZ(Math.PI/6);
         scene.add( group );
         group.add(modelGroup);
     }
 
-    function addPlane() {
-        plane = new THREE.Plane( new THREE.Vector3( 0, 0, 1 ), 3 );
-        var helper = new THREE.PlaneHelper( plane, 200, 0x000000 );
-        group.add( helper );
+    function addGrid() {
+        var gridHelper = new THREE.GridHelper( 400, 40, 0x0000ff, 0x808080 );
+        gridHelper.rotation.x = Math.PI/2;
+        scene.add( gridHelper );
     }
-
     function addImage() {
         const geometry = new THREE.PlaneGeometry(80, 142);
         const texture = new THREE.TextureLoader().load('./kobe.png' );
@@ -89,7 +91,6 @@
         this.intersectDetector.addEventListener(
             'detected',
             function(event) {
-                console.log('detected');
                 const modelMesh = event.object;
                 transformControl.attach(modelMesh);
             }
@@ -97,11 +98,9 @@
     }
 
     function addTransformControls() {
-        transformControl = new THREE.TransformControls2D( camera, renderer.domElement );
+        transformControl = new THREE.TransformControls2D( camera, renderer.domElement, scene );
         // transformControl.addEventListener( 'change', render );
         // transformControl.addEventListener('mouseUp', updateModelInfo_Size );
-
-        console.log('add');
         scene.add( transformControl );
     }
     function animate() {
@@ -137,7 +136,15 @@
     }
 
     function test() {
-        console.log('test');
+        // document.style.cursor = 'pointer';
+        // document.style.cursor = 'crosshair';
+        transformControl.detach();
+    }
+    function transform() {
+        if (transformControl.object) {
+            transformControl.object.position.add(new THREE.Vector3(1, 2, 0));
+            transformControl.object.rotateZ(0.1);
+        }
     }
 </script>
 

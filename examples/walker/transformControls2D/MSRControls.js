@@ -44,7 +44,7 @@ THREE.MSRControls = function (object, camera, domElement ) {
     this.enabled = true;
 
     this.enabledRotate = true;
-    this.enabledPan = true;
+    this.enabledTranslate = true;
     this.enabledScale = true;
 
     this.dispose = function () {
@@ -130,7 +130,7 @@ THREE.MSRControls = function (object, camera, domElement ) {
     }
 
     function handleMouseMovePan( event ) {
-        if ( scope.enabledPan === false ) return;
+        if ( scope.enabledTranslate === false ) return;
         panEnd.copy( getWorldPosition(event) );
         panDelta.subVectors( panEnd, panStart );
         //pan object
