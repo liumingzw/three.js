@@ -70,6 +70,28 @@
             return point.x * point.x + point.y * point.y;
         }
 
+        function quick_Sort(origArray) {
+            if (origArray.length <= 1) {
+                return origArray;
+            } else {
+                var left = [];
+                var right = [];
+                var newArray = [];
+                var pivot = origArray.pop();
+                var length = origArray.length;
+
+                for (var i = 0; i < length; i++) {
+                    if (computeDis(origArray[i]) <= computeDis(pivot)) {
+                        left.push(origArray[i]);
+                    } else {
+                        right.push(origArray[i]);
+                    }
+                }
+                return newArray.concat(quick_Sort(left), pivot, quick_Sort(right));
+            }
+        }
+
+
         const points = [];
         for (var i = 0; i <= (maxX - minX) / step; i++) {
             for (var j = 0; j <= (maxY - minY) / step; j++) {
@@ -83,18 +105,7 @@
             }
         }
 
-        // sort
-        const length = points.length;
-        for (let i = 0; i < length; i++) {
-            for (let j = 0; j < (length - i - 1); j++) {
-                if (computeDis(points[j]) > computeDis(points[j + 1])) {
-                    const tmp = points[j];
-                    points[j] = points[j + 1];
-                    points[j + 1] = tmp;
-                }
-            }
-        }
-        return points;
+        return quick_Sort(points);
     }
 
     function setSuitablePosition(newModel) {
