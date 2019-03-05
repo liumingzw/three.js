@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>arrangeModels2D</title>
+</head>
+<body>
+
+<div>
+    <button onclick="addRandomModel()">add random model</button>
+    <button onclick="displayCandidatePoints()">display candidate points</button>
+    <button onclick="cleanModels()">clean models</button>
+    <button onclick="cleanPoints()">clean points</button>
+</div>
+
+
+<div id="WebGL-output"> </div>
+<script src="../../../build/three.js"></script>
+<script>
+
+    var scene, camera, renderer, group;
+    var modelGroup, pointGroup, candidatePoints;
+
+    init();
+    addGrid();
+    animate();
+
+    function init() {
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 1000 );
+        camera.position.set( 0, 0, 550 );
+        camera.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setClearColor( new THREE.Color( 0xE8E8E8 ), 1.0 );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.shadowMapEnabled = true;
+
+        scene.add( camera );
+
+        document.getElementById( "WebGL-output" ).appendChild( renderer.domElement );
+
+        group = new THREE.Group();
+        modelGroup = new THREE.Group();
+        pointGroup = new THREE.Group();
+        scene.add(group);
+        group.add(modelGroup);
+        group.add(pointGroup);
+
+        candidatePoints = getCandidatePoints(-200, -200, 200, 200, 10);
+    }
+
+    function addGrid() {
+        var gridHelper = new THREE.GridHelper(400, 40, 0x0000ff, 0x808080);
+        gridHelper.rotation.x = Math.PI/2;
+        scene.add( gridHelper );
+    }
+
+    function animate() {
+        requestAnimationFrame( animate );
+        render();
+    }
+
+    function render() {
+        renderer.render( scene, camera );
+    }
+
+    function getCandidatePoints(minX, minY, maxX, maxY, step) {
+        function computeDis(point) {
+            return point.x * point.x + point.y * point.y;
+        }
+
+        const points = [];
+        for (var i = 0; i <= (maxX - minX) / step; i++) {
+            for (var j = 0; j <= (maxY - minY) / step; j++) {
+                points.push(
+                    {
+                        x: minX + step * i,
+                        y: minY + step * j,
+                        z: 0
+                    }
+                );
+            }
+        }
+
+        // sort
+        const length = points.length;
+        for (let i = 0; i < length; i++) {
+            for (let j = 0; j < (length - i - 1); j++) {
+                if (computeDis(points[j]) > computeDis(points[j + 1])) {
+                    const tmp = points[j];
+                    points[j] = points[j + 1];
+                    points[j + 1] = tmp;
+                }
+            }
+        }
+        return points;
+    }
+
+    function setSuitablePosition(newModel) {
+        if (modelGroup.children.length === 0) {
+            newModel.position = new THREE.Vector3(0, 0, 0);
+            return;
+        }
+
+        function comBox2(model) {
+            const userData = model.userData;
+            const width = userData.width;
+            const height = userData.height;
+            const position = model.position;
+            const box2 = new THREE.Box2(
+                new THREE.Vector2(position.x - width / 2, position.y - height / 2),
+                new THREE.Vector2(position.x + width / 2, position.y + height / 2),
+            );
+            return box2;
+        }
+
+        function intersect(model) {
+            const box2 = comBox2(model);
+            for (const m of modelGroup.children) {
+                const b = comBox2(m);
+                if (box2.intersectsBox(b)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        for (const p of candidatePoints) {
+            newModel.position.x = p.x;
+            newModel.position.y = p.y;
+            if (!intersect(newModel)) {
+                return;
+            }
+        }
+    }
+
+    function randomNum(minNum, maxNum){
+        switch(arguments.length){
+            case 1:
+                return parseInt(Math.random() * minNum + 1, 10);
+                break;
+            case 2:
+                return parseInt(Math.random() * (maxNum - minNum + 1) + minNum, 10);
+                break;
+            default:
+                return 0;
+                break;
+        }
+    }
+
+    const minNum = 10;
+    const maxNum = 30;
+    function generateRandomModel() {
+        const width = randomNum(minNum, maxNum);
+        const height = randomNum(minNum, maxNum);
+        var geometry = new THREE.PlaneGeometry(width, height);
+        var color = new THREE.Color( Math.random(), Math.random(), Math.random() );
+        var material = new THREE.MeshBasicMaterial( {color: color} );
+        var model = new THREE.Mesh( geometry, material );
+        model.userData = {
+            width: width,
+            height: height
+        };
+        return model;
+    }
+
+    // ui
+    function addRandomModel() {
+        const newModel = generateRandomModel();
+        setSuitablePosition(newModel);
+        modelGroup.add(newModel);
+    }
+
+    function displayCandidatePoints() {
+        const point = candidatePoints[pointGroup.children.length];
+        const geometry = new THREE.Geometry();
+        geometry.vertices.push(point);
+        const material = new THREE.PointsMaterial({ color: 0xff0000, size: 5 });
+        const pointsMesh = new THREE.Points(geometry, material);
+        pointsMesh.position.y = -1;
+        pointGroup.add(pointsMesh);
+    }
+
+    function cleanModels() {
+        for (var i = 0; i < modelGroup.children.length; i++) {
+            modelGroup.remove(modelGroup.children[i]);
+            i--;
+        }
+    }
+
+    function cleanPoints() {
+        for (var i = 0; i < pointGroup.children.length; i++) {
+            pointGroup.remove(pointGroup.children[i]);
+            i--;
+        }
+    }
+</script>
+
+</body>
+</html>
