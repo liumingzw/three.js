@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>1-print-space</title>
+</head>
+<body>
+
+<div id="Stats-output"> </div>
+<div id="WebGL-output"> </div>
+
+<script src="../build/three.js"></script>
+<script src="js/controls/OrbitControls.js"></script>
+<script src="js/libs/stats.min.js"></script>
+<script src="js/libs/dat.gui.min.js"></script>
+
+<script>
+
+    var scene, camera, renderer, group, stats;
+    var orbitControls;
+
+    init();
+
+    addPrintSpace();
+
+    addCubeToCenter(); //to mark the zero point of world
+
+    addOrbitControls();
+
+    animate();
+
+    function init() {
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 1000 );
+        // camera.position.set( 250, 250, 250 );
+        camera.position.set(0,0,400 );
+        camera.lookAt(new THREE.Vector3( 23, 20, 40 ));
+        // camera.lookAt({x: 2000, y: 200, z: 200} );
+        camera.up.x = 0;
+        camera.up.y = 1;
+        camera.up.z = 0;
+
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setClearColor( new THREE.Color( 0xE8E8E8 ), 1.0 );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.shadowMapEnabled = true;
+
+        scene.add( camera );
+
+        document.getElementById( "WebGL-output" ).appendChild( renderer.domElement );
+
+        stats = new Stats();
+        document.getElementById( "Stats-output" ).appendChild( stats.dom );
+
+        group = new THREE.Group();
+        scene.add( group );
+    }
+
+    function addPrintSpace() {
+
+        // add 6 sides of print space
+        var size = 125;
+        var divisions = 1;
+
+        var bottom = new THREE.GridHelper( size, divisions * 10  );
+        bottom.position.set( 0, -size/2, 0 );
+        group.add( bottom );
+
+        var top = new THREE.GridHelper( size, divisions );
+        top.position.set( 0, size/2, 0 );
+        group.add( top );
+
+        var left = new THREE.GridHelper( size, divisions );
+        left.rotateZ ( Math.PI/2 );
+        left.position.set( -size/2, 0, 0 );
+        group.add( left );
+
+        var right = new THREE.GridHelper( size, divisions );
+        right.rotateZ ( Math.PI/2 );
+        right.position.set( size/2, 0, 0 );
+        group.add( right );
+
+        var front = new THREE.GridHelper( size, divisions );
+        front.rotateX ( Math.PI/2 );
+        front.position.set( 0, 0, size/2);
+        group.add( front );
+
+        var back = new THREE.GridHelper( size, divisions );
+        back.rotateX ( Math.PI/2 );
+        back.position.set( 0, 0, -size/2);
+        group.add( back );
+
+        for ( var k = 0; k < group.children.length; k += 1 ) {
+            group.children[ k ].material.opacity = 0.25;
+            group.children[ k ].material.transparent = true;
+        }
+
+        var axis = new THREE.AxesHelper( 50 );
+        // axis.position.y = -125/2;
+        group.add( axis );
+
+    }
+
+    function addCubeToCenter() {
+
+        // add a box in zero point of world
+        var boxGeometry = new THREE.BoxGeometry( 5, 5, 5 );
+
+        for ( var i = 0; i < boxGeometry.faces.length; i += 2 ) {
+            var hex = Math.random() * 0xffffff;
+            boxGeometry.faces[ i ].color.setHex( hex );
+            boxGeometry.faces[ i + 1 ].color.setHex( hex );
+        }
+
+        var material = new THREE.MeshBasicMaterial( { vertexColors: THREE.FaceColors, overdraw: 0.5 } );
+        cube = new THREE.Mesh( boxGeometry, material );
+        cube.position.set( 0, 0, 0 );
+        scene.add( cube );
+
+    }
+    
+    function addOrbitControls() {
+
+        orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        //tip : must call 'render()' rather than 'animate()', or UI lags
+        orbitControls.addEventListener('change', render);
+
+        orbitControls.addEventListener('start', function () {
+            // console.log('start');
+        });
+
+        orbitControls.addEventListener('end', function () {
+            // console.log('end');
+            // orbitControls.target = group.position.clone();
+        });
+
+    }
+
+    function animate() {
+
+        requestAnimationFrame( animate );
+        render();
+        stats.update();
+        // orbitControls.target = group.position;
+
+    }
+
+    function render() {
+
+        renderer.render( scene, camera );
+
+    }
+
+</script>
+
+</body>
+</html>
